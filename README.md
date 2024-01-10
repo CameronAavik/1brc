@@ -11,6 +11,8 @@ dotnet publish -r win-x64 -c Release
 
 Then you can find the `1brc.exe` inside the `bin/Release/net8.0/publish/win-x64` directory. This executable takes a single argument which is the file path to the measurements file.
 
+While my solution doesn't require AVX2, it is written assuming that it is available on the machine this is running on. If AVX2 is not available, then it will fall back to simulating 256-bit vectors using two 128-bit vectors as is provided by the `Vector256` type in the standard library.
+
 ## Measurements
 My system has the following specs
 - CPU: AMD Ryzen 9 5950X @ 3.4GHz (default clock speed)
@@ -27,9 +29,9 @@ After running my program 10 times in a row, these are my measurements on my syst
 - Process Time: Min=1.329s, Avg=1.346s, Max=1.361s
 
 ## Comparison to other solutions
-I also ran the C# solution written by [buybackoff](https://github.com/buybackoff/1brc) which also has a Stopwatch at the start and stop of the program. I noticed when running it that there was a much larger gap between the Stopwatch time and the process time. I believe this is because the stopwatch time is not timing how long it takes to close/dispose any of the file handles. I have a suspicion that maybe these issues are only showing up because I am using Windows and the results would be different on Linux.
+I also ran [buybackoff's C# solution](https://github.com/buybackoff/1brc) which also has a Stopwatch at the start and stop of the program. I noticed when running it that there was a much larger gap between the Stopwatch time and the process time. I believe this is because the stopwatch time is not timing how long it takes to close/dispose any of the file handles. I have a suspicion that maybe these issues are only showing up because I am using Windows and the results would be different on Linux.
 
-And I also ran royvanrijn's Java solution which is currently winning the competition in the original repo. I ran it using the latest GraalVM JDK. It does not have a stopwatch in the source code, so I can only time the whole process time.
+And I also ran [royvanrijn's Java solution](https://github.com/gunnarmorling/1brc/blob/main/src/main/java/dev/morling/onebrc/CalculateAverage_royvanrijn.java) which is currently winning the competition in the original repo. I ran it using the latest GraalVM JDK. It does not have a stopwatch in the source code, so I can only time the whole process time.
 
 buybackoff's C# solution:
 - Stopwatch: Min=1.433s, Avg=1.453s, Max=1.503s
@@ -37,3 +39,5 @@ buybackoff's C# solution:
 
 royvanrijn's Java solution:
 - Process Time: Min=2.501s, Avg=2.549s, Max=2.597s
+
+Right now I'm still waiting for some other people to test out my code on their hardware and get some more performance measurements. In particular I would like to see how it fares when comparing on Linux instead of Windows, as it may be that this improved performance is not reproducible on Linux. I would take these comparisons with a grain of salt for now until then.
