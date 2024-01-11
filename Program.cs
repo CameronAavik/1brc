@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Win32.SafeHandles;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -152,13 +153,11 @@ public class OneBrcSolver
 
     public void Run(string filePath)
     {
-        long fileLength;
-        using (var fs = File.OpenRead(filePath))
-            fileLength = fs.Length;
+        using var handle = File.OpenHandle(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, FileOptions.None);
+        long fileLength = RandomAccess.GetLength(handle);
 
-        using var mmf = MemoryMappedFile.CreateFromFile(filePath);
-
-        var chunkStatistics = Enumerable.Range(0, numChunks)
+        using var mmf = MemoryMappedFile.CreateFromFile(handle, null, 0, MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
+        CityStatistics[][] chunkStatistics = Enumerable.Range(0, numChunks)
             .AsParallel()
             .Select(i => RunChunk(i, mmf, fileLength))
             .ToArray();
@@ -169,11 +168,11 @@ public class OneBrcSolver
         for (int i = 0; i < numChunks; i++)
         {
             var offset = i * fileLength / numChunks;
-            RunAtOffset(offset - (offset % chunkSizeFactor), mmf, fileLength, allStatistics);
+            RunAtOffset(offset - (offset % chunkSizeFactor), handle, fileLength, allStatistics);
         }
 
         // handle last line at end of file that did not fit in vector width
-        RunAtOffset(fileLength - (fileLength % Vector256<byte>.Count), mmf, fileLength, allStatistics, untilEnd: true);
+        RunAtOffset(fileLength - (fileLength % Vector256<byte>.Count), handle, fileLength, allStatistics, untilEnd: true);
         PrintStatistics(allStatistics);
     }
 
@@ -349,18 +348,14 @@ public class OneBrcSolver
 
     // Handles overlap cases such as a line in between chunks, or the the last few lines in the last chunk that don't fit in a vector
     // Since this will only get run a couple times, we don't need this to be super optimised
-    private static unsafe void RunAtOffset(long offset, MemoryMappedFile mmf, long fileLength, Dictionary<string, CityStatistics> allStatistics, bool untilEnd = false)
+    [SkipLocalsInit]
+    private static unsafe void RunAtOffset(long offset, SafeFileHandle handle, long fileLength, Dictionary<string, CityStatistics> allStatistics, bool untilEnd = false)
     {
+        Span<byte> buf = stackalloc byte[256];
+
         var start = Math.Max(0, offset - 128);
-        var end = untilEnd ? fileLength : offset + 128;
-        var length = end - start;
-
-        using var accessor = mmf.CreateViewAccessor(start, length, MemoryMappedFileAccess.Read);
-        byte* ptr = default;
-        accessor.SafeMemoryMappedViewHandle.AcquirePointer(ref ptr);
-        ptr += accessor.PointerOffset;
-
-        var span = new ReadOnlySpan<byte>(ptr, (int)length);
+        int bytesRead = RandomAccess.Read(handle, buf, start);
+        var span = buf[..bytesRead];
         var offsetInSpan = (int)(start == 0 ? offset : 128);
 
         // trim span so it starts at the line for the given offset
@@ -380,8 +375,6 @@ public class OneBrcSolver
 
             span = span[(measurementLength + 1)..];
         }
-
-        accessor.SafeMemoryMappedViewHandle.ReleasePointer();
     }
 
     // Extracts the city name and temperature measurement
