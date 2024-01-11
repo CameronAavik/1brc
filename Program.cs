@@ -132,7 +132,13 @@ public record CityStatistics(string CityName, int Min, int Max, int Count, long 
     {
         var avg = (Sum * 2 / Count + Math.Sign(Sum)) / 2; // fast average with rounding
         Debug.Assert(Math.Round((double)Sum / Count) == avg);
-        return $"{CityName}={Min / 10}.{Math.Abs(Min % 10)}/{avg / 10}.{Math.Abs(avg % 10)}/{Max / 10}.{Math.Abs(Max % 10)}";
+        return $"{CityName}={NumToString(Min)}/{NumToString(avg)}/{NumToString(Max)}";
+
+        string NumToString(long num)
+        {
+            var abs = Math.Abs(num);
+            return $"{(num < 0 ? "-" : "")}{abs / 10}.{abs % 10}";
+        }
     }
 }
 
