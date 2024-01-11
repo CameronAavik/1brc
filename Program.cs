@@ -145,13 +145,16 @@ public record CityStatistics(string CityName, int Min, int Max, int Count, long 
 public class OneBrcSolver
 {
     // Chunks will be processed in parallel using PLinq, the size of each chunk must be a multiple of chunkSizeFactor
-    // 65536 was chosen since on my dev machine it ensured that each chunk would align with the start of a mmap page
-    private const int numChunks = 256;
+    // 65536 was chosen since on my dev machine it ensured that each chunk would align with the start of a mmap page.
+    // In my testing, Windows runs faster with more chunks, while Linux runs faster with less chunks
     private const int chunkSizeFactor = 65536;
+    private static readonly int numChunks = RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? 32 : 256;
 
     public void Run(string filePath)
     {
-        var fileLength = new FileInfo(filePath).Length;
+        long fileLength;
+        using (var fs = File.OpenRead(filePath))
+            fileLength = fs.Length;
 
         using var mmf = MemoryMappedFile.CreateFromFile(filePath);
 
