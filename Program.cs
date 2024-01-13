@@ -15,13 +15,7 @@ namespace CameronAavik.OneBRC;
 
 public class Program
 {
-    public static void Main(string[] args)
-    {
-        var sw = new Stopwatch();
-        sw.Start();
-        new OneBrcSolver().Run(args[0]);
-        Console.WriteLine($"Duration: {sw.Elapsed}");
-    }
+    public static void Main(string[] args) => new OneBrcSolver().Run(args[0]);
 }
 
 /**
@@ -29,12 +23,13 @@ public class Program
  * Next8Bytes, it can store city names of up to length 16. If the length is more than 16, then Next8Bytes will instead 
  * store a nuint which represents a pointer to the rest of the city name.
  */
+[StructLayout(LayoutKind.Sequential, Size = 64)]
 public struct HashEntry()
 {
     public uint First4Bytes;
     public uint Last4Bytes;
     public int Length;
-    public int Count = 1;
+    public int Count;
     public int Min;
     public int Max;
     public long Sum;
@@ -75,13 +70,14 @@ public struct HashEntry()
 
             return true;
         }
-        
+
         // Otherwise, if this entry has no length it means it is uninitialized and this entry can be used for the new city
         if (Length == 0)
         {
             First4Bytes = first4Bytes;
             Last4Bytes = last4Bytes;
             Length = cityNameLength;
+            Count = 1;
             Min = number;
             Max = number;
             Sum = number;
